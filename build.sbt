@@ -1,9 +1,39 @@
-val Scala212 = "2.12.20"
+import org.typelevel.sbt.gha.WorkflowStep.Run
+import org.typelevel.sbt.gha.WorkflowStep.Sbt
+
 val Scala213 = "2.13.16"
 val Scala3 = "3.3.6"
 
-ThisBuild / tlBaseVersion := "3.6"
-ThisBuild / crossScalaVersions := Seq(Scala212, Scala3, Scala213)
+ThisBuild / githubOwner := "igor-ramazanov-typelevel"
+ThisBuild / githubRepository := "vault"
+
+ThisBuild / githubWorkflowPublishPreamble := List.empty
+ThisBuild / githubWorkflowUseSbtThinClient := true
+ThisBuild / githubWorkflowPublish := List(
+  Run(
+    commands = List("echo \"$PGP_SECRET\" | gpg --import"),
+    id = None,
+    name = Some("Import PGP key"),
+    env = Map("PGP_SECRET" -> "${{ secrets.PGP_SECRET }}"),
+    params = Map(),
+    timeoutMinutes = None,
+    workingDirectory = None
+  ),
+  Sbt(
+    commands = List("+ publish"),
+    id = None,
+    name = Some("Publish"),
+    cond = None,
+    env = Map("GITHUB_TOKEN" -> "${{ secrets.GB_TOKEN }}"),
+    params = Map.empty,
+    timeoutMinutes = None,
+    preamble = true
+  )
+)
+ThisBuild / gpgWarnOnFailure := false
+
+ThisBuild / tlBaseVersion := "3.7"
+ThisBuild / crossScalaVersions := Seq(Scala3, Scala213)
 ThisBuild / tlVersionIntroduced := Map("3" -> "3.0.3")
 ThisBuild / tlMimaPreviousVersions ~= (_.filterNot(_ == "3.2.0"))
 ThisBuild / licenses := List("MIT" -> url("http://opensource.org/licenses/MIT"))
@@ -33,23 +63,20 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform)
       "org.typelevel" %%% "discipline-munit" % disciplineMunitV % Test,
       "org.typelevel" %%% "scalacheck-effect-munit" % scalacheckEffectV % Test,
       "org.typelevel" %%% "munit-cats-effect" % munitCatsEffectV % Test
-    )
+    ),
+    publishTo := githubPublishTo.value,
+    publishConfiguration := publishConfiguration.value.withOverwrite(true),
+    publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true)
   )
   .nativeSettings(
-    tlVersionIntroduced := List("2.12", "2.13", "3").map(_ -> "3.2.2").toMap
+    tlVersionIntroduced := List("2.13", "3").map(_ -> "3.2.2").toMap
   )
 
-lazy val docs = project
-  .in(file("site"))
-  .settings(tlFatalWarnings := false)
-  .dependsOn(core.jvm)
-  .enablePlugins(TypelevelSitePlugin)
-
-val catsV = "2.11.0"
-val catsEffectV = "3.6.1"
-val disciplineMunitV = "2.0.0-M3"
-val scalacheckEffectV = "2.0.0-M2"
-val munitCatsEffectV = "2.1.0"
+val catsV = "2.13.0"
+val catsEffectV = "3.7-4972921"
+val disciplineMunitV = "2.0.0"
+val scalacheckEffectV = "2.1.0-M1"
+val munitCatsEffectV = "2.2.0-M1"
 val kindProjectorV = "0.13.3"
 
 // Scalafmt
